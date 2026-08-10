@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin — Ladies, Leadership & Logistics</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+  <main class="admin-shell">
+    <section id="loginView" class="login-card">
+      <div class="brand">LLL <span>ADMIN</span></div>
+      <h1>Welcome back.</h1>
+      <p>Sign in to manage feedback, guest requests and subscribers.</p>
+      <form id="loginForm">
+        <label>Email<input type="email" name="email" autocomplete="username" required></label>
+        <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
+        <button type="submit">Sign in</button>
+        <div id="loginError" class="error"></div>
+      </form>
+    </section>
+
+    <section id="dashboardView" hidden>
+      <header class="topbar">
+        <div><div class="brand">LLL <span>ADMIN</span></div><p id="adminEmail"></p></div>
+        <button id="logoutBtn" class="secondary">Log out</button>
+      </header>
+
+      <div class="stats" id="stats"></div>
+
+      <nav class="tabs">
+        <button class="tab active" data-tab="feedback">Feedback</button>
+        <button class="tab" data-tab="guests">Guest Requests</button>
+        <button class="tab" data-tab="subscribers">Newsletter Subscribers</button>
+      </nav>
+
+      <section id="feedbackPanel" class="panel"></section>
+      <section id="guestsPanel" class="panel" hidden></section>
+      <section id="subscribersPanel" class="panel" hidden></section>
+    </section>
+  </main>
+  <script src="/admin/admin.js"></script>
+</body>
+</html>
