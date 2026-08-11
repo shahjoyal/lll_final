@@ -449,6 +449,67 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
   .about-show__grid{grid-template-columns:0.9fr 1.1fr;gap:64px;}
 }
 
+/* =============== STATS (BY THE NUMBERS) =============== */
+.stats{
+  padding:100px 0 110px;
+  background:linear-gradient(180deg,var(--champagne-soft),var(--ivory) 75%);
+  position:relative;
+}
+.stats__grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:18px;
+}
+.stat-card{
+  position:relative;
+  padding:34px 22px 30px;
+  text-align:center;
+  border:1px solid var(--line);
+  border-radius:20px;
+  background:rgba(255,255,255,.7);
+  box-shadow:0 15px 45px -30px rgba(140,101,24,.45);
+  transition:transform .35s cubic-bezier(.22,.9,.32,1), box-shadow .35s ease;
+}
+.stat-card:hover{
+  transform:translateY(-6px);
+  box-shadow:0 24px 55px -26px rgba(140,101,24,.5);
+}
+.stat-card__icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:46px;height:46px;
+  margin-bottom:14px;
+  border-radius:50%;
+  color:var(--gold);
+  background:var(--champagne);
+}
+.stat-card__icon svg{width:22px;height:22px;}
+.stat-card__num{
+  font-family:var(--ff-display);
+  font-weight:600;
+  font-size:clamp(30px,5.4vw,46px);
+  line-height:1;
+  color:var(--gold-deep);
+  margin:0 0 8px;
+  letter-spacing:-0.01em;
+  font-variant-numeric:tabular-nums;
+}
+.stat-card__label{
+  font-size:13.5px;
+  color:var(--ink-soft);
+  margin:0;
+  letter-spacing:0.01em;
+}
+
+@media(min-width:640px){
+  .stats__grid{gap:24px;}
+}
+@media(min-width:900px){
+  .stats__grid{grid-template-columns:repeat(4,1fr);gap:28px;}
+  .stat-card{padding:40px 26px 34px;}
+}
+
 /* =============== FOUNDER =============== */
 .founder{
   padding:120px 0;

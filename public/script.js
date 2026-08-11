@@ -39,6 +39,64 @@ document.addEventListener('DOMContentLoaded', () => {
   }, { threshold: 0.15, rootMargin: '0px 0px -60px 0px' });
   revealEls.forEach(el => io.observe(el));
 
+  /* ---------- Animated stat counters ---------- */
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const statNums = document.querySelectorAll('.stat-card__num[data-count-to]');
+
+  function formatStatValue(value, decimals, suffix) {
+    const usesK = suffix.indexOf('K') !== -1;
+    const plainSuffix = suffix.replace('K', '');
+    if (usesK) {
+      const inK = value / 1000;
+      return inK.toFixed(decimals) + 'K' + plainSuffix;
+    }
+    return Math.round(value).toLocaleString('en-US') + plainSuffix;
+  }
+
+  function animateStat(el) {
+    const target = parseFloat(el.dataset.countTo || '0');
+    const decimals = parseInt(el.dataset.decimals || '0', 10);
+    const suffix = el.dataset.suffix || '';
+
+    if (prefersReducedMotion) {
+      el.textContent = formatStatValue(target, decimals, suffix);
+      return;
+    }
+
+    const duration = 1800;
+    const start = performance.now();
+
+    function easeOutExpo(t) {
+      return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+    }
+
+    function tick(now) {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = easeOutExpo(progress);
+      const current = target * eased;
+      el.textContent = formatStatValue(current, decimals, suffix);
+      if (progress < 1) {
+        requestAnimationFrame(tick);
+      } else {
+        el.textContent = formatStatValue(target, decimals, suffix);
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  if (statNums.length) {
+    const statsIO = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          animateStat(entry.target);
+          statsIO.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.4 });
+    statNums.forEach(el => statsIO.observe(el));
+  }
+
   /* ---------- Route rail progress (desktop signature element) ---------- */
   const rail = document.querySelector('.route-rail');
   const railFill = document.querySelector('.route-rail__fill');
