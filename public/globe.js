@@ -25,15 +25,49 @@ document.addEventListener('DOMContentLoaded', () => {
   const cInk       = (css.getPropertyValue('--ink') || '#2B2622').trim();
 
   /* ---------- Guest countries (single source of truth: the HTML list) ---------- */
+  function parseGuestNames(raw) {
+    return (raw || '')
+      .split(',')
+      .map(n => n.trim())
+      .filter(Boolean);
+  }
+
   const guestItems = Array.from(listEl.querySelectorAll('.guests__item')).map(li => ({
     name: li.dataset.country,
     lat: parseFloat(li.dataset.lat),
     lng: parseFloat(li.dataset.lng),
     flag: li.querySelector('.guests__flag') ? li.querySelector('.guests__flag').textContent : '',
+    guests: parseGuestNames(li.dataset.guests),
     el: li
   })).filter(d => !isNaN(d.lat) && !isNaN(d.lng));
 
   if (!guestItems.length) return;
+
+  /* ---------- Build the collapsible "names" panel inside each list item ----------
+     Wraps the existing flag+country markup in a head row, then appends a hidden
+     panel that reveals the guest names for that country when the item is active. */
+  guestItems.forEach(item => {
+    const head = document.createElement('div');
+    head.className = 'guests__item-head';
+    while (item.el.firstChild) head.appendChild(item.el.firstChild);
+    item.el.appendChild(head);
+
+    const namesEl = document.createElement('div');
+    namesEl.className = 'guests__names';
+    item.namesEl = namesEl;
+    renderNamesInto(namesEl, item.guests);
+    item.el.appendChild(namesEl);
+  });
+
+  function renderNamesInto(el, names) {
+    if (names && names.length) {
+      el.classList.remove('is-empty');
+      el.textContent = names.join(', ');
+    } else {
+      el.classList.add('is-empty');
+      el.textContent = 'Guest names coming soon.';
+    }
+  }
 
   /* ---------- Scene setup ---------- */
   const RADIUS = 2.15;
@@ -156,7 +190,14 @@ document.addEventListener('DOMContentLoaded', () => {
     ring.lookAt(pos.clone().multiplyScalar(2));
     globeGroup.add(ring);
 
-    return { item, pin, ring, basePos: pos.clone(), phaseOffset: i * 0.7 };
+    /* On-globe label: keeps the country name (and flag) anchored next to its
+       point so it's identifiable at a glance, without needing to hover. */
+    const labelEl = document.createElement('div');
+    labelEl.className = 'globe-label';
+    labelEl.innerHTML = `<span class="globe-label__flag">${item.flag}</span><span>${item.name}</span>`;
+    stage.appendChild(labelEl);
+
+    return { item, pin, ring, labelEl, basePos: pos.clone(), phaseOffset: i * 0.7 };
   });
 
   /* ---------- Interaction: drag / touch rotate + inertia ---------- */
@@ -282,7 +323,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (hovered) {
       hovered.pin.scale.set(1.6, 1.6, 1.6);
       tooltip.style.opacity = '1';
-      tooltip.textContent = `${hovered.item.flag} ${hovered.item.name}`;
+      const names = hovered.item.guests;
+      const guestsHtml = names.length
+        ? `<span class="globe-tooltip__guests">${names.join(', ')}</span>`
+        : `<span class="globe-tooltip__guests is-empty">Guest names coming soon</span>`;
+      tooltip.innerHTML = `<span class="globe-tooltip__title">${hovered.item.flag} ${hovered.item.name}</span>${guestsHtml}`;
       canvas.style.cursor = 'pointer';
     } else {
       tooltip.style.opacity = '0';
@@ -305,6 +350,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* ---------- Animate ---------- */
   const tmpVec = new THREE.Vector3();
+  const labelWorldVec = new THREE.Vector3();
+  const camDirVec = new THREE.Vector3();
 
   function animate() {
     requestAnimationFrame(animate);
@@ -337,6 +384,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const y = (-proj.y * 0.5 + 0.5) * height;
       tooltip.style.transform = `translate(${x}px, ${y}px) translate(-50%, -145%)`;
     }
+
+    // Keep each country's on-globe name tag anchored to its point, and fade
+    // it out once the point rotates around to the far side of the globe.
+    markers.forEach(m => {
+      m.pin.getWorldPosition(labelWorldVec);
+      const facing = labelWorldVec.clone().normalize().dot(camDirVec.copy(camera.position).normalize());
+      if (facing < -0.08) {
+        m.labelEl.style.opacity = '0';
+        m.labelEl.style.transform = 'translate(-9999px,-9999px)';
+      } else {
+        const proj = labelWorldVec.clone().project(camera);
+        const x = (proj.x * 0.5 + 0.5) * width;
+        const y = (-proj.y * 0.5 + 0.5) * height;
+        const fade = Math.min(1, (facing + 0.08) / 0.35);
+        m.labelEl.style.opacity = (m === hovered ? 1 : 0.85 * fade).toString();
+        m.labelEl.style.transform = `translate(${x}px, ${y}px) translate(10px, -50%)`;
+      }
+    });
 
     // gentle pulse for rings
     const t = performance.now() * 0.0018;
