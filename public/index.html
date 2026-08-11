@@ -38,6 +38,7 @@
       <a href="#about" data-nav>About the Show</a>
       <a href="#founder" data-nav>Founder</a>
       <a href="#episodes" data-nav>Episodes</a>
+      <a href="#guests" data-nav>Global Reach</a>
       <a href="#connect" data-nav>Contact</a>
     </nav>
 
@@ -244,6 +245,56 @@
   </div>
 </section>
 
+<!-- ===== GUESTS FROM AROUND THE WORLD (3D GLOBE) ===== -->
+<section class="guests" id="guests">
+  <div class="section-inner">
+    <p class="eyebrow reveal-up">Global Reach</p>
+    <h2 class="section-title reveal-up">Guests From Around the World</h2>
+    <p class="guests__sub reveal-up">Leaders from 10 countries have joined the route so far — drag the globe or tap a country to explore.</p>
+
+    <div class="guests__wrap reveal-up">
+      <div class="guests__globe-stage" id="globeStage">
+        <canvas id="globeCanvas" aria-label="Interactive 3D globe showing countries our guests join from" role="img"></canvas>
+        <div class="globe-tooltip" id="globeTooltip"></div>
+        <p class="guests__hint">Drag to rotate • Tap a pin</p>
+      </div>
+
+      <ul class="guests__list" id="guestsList">
+        <li class="guests__item" data-country="India" data-lat="20.5937" data-lng="78.9629" tabindex="0">
+          <span class="guests__flag">🇮🇳</span><span>India</span>
+        </li>
+        <li class="guests__item" data-country="Peru" data-lat="-9.1900" data-lng="-75.0152" tabindex="0">
+          <span class="guests__flag">🇵🇪</span><span>Peru</span>
+        </li>
+        <li class="guests__item" data-country="Brazil" data-lat="-14.2350" data-lng="-51.9253" tabindex="0">
+          <span class="guests__flag">🇧🇷</span><span>Brazil</span>
+        </li>
+        <li class="guests__item" data-country="Angola" data-lat="-11.2027" data-lng="17.8739" tabindex="0">
+          <span class="guests__flag">🇦🇴</span><span>Angola</span>
+        </li>
+        <li class="guests__item" data-country="Canada" data-lat="56.1304" data-lng="-106.3468" tabindex="0">
+          <span class="guests__flag">🇨🇦</span><span>Canada</span>
+        </li>
+        <li class="guests__item" data-country="Singapore" data-lat="1.3521" data-lng="103.8198" tabindex="0">
+          <span class="guests__flag">🇸🇬</span><span>Singapore</span>
+        </li>
+        <li class="guests__item" data-country="USA" data-lat="37.0902" data-lng="-95.7129" tabindex="0">
+          <span class="guests__flag">🇺🇸</span><span>USA</span>
+        </li>
+        <li class="guests__item" data-country="Netherlands" data-lat="52.1326" data-lng="5.2913" tabindex="0">
+          <span class="guests__flag">🇳🇱</span><span>Netherlands</span>
+        </li>
+        <li class="guests__item" data-country="Sri Lanka" data-lat="7.8731" data-lng="80.7718" tabindex="0">
+          <span class="guests__flag">🇱🇰</span><span>Sri Lanka</span>
+        </li>
+        <li class="guests__item" data-country="Mexico" data-lat="23.6345" data-lng="-102.5528" tabindex="0">
+          <span class="guests__flag">🇲🇽</span><span>Mexico</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>
+
 <!-- ===== CUSTOMER REVIEWS ===== -->
 <section class="reviews" id="reviews">
   <div class="section-inner">
@@ -417,6 +468,8 @@
   <a href="https://www.linkedin.com/company/ladies-leadership-logistics/" target="_blank" rel="noopener">Visit LinkedIn →</a>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="globe.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
