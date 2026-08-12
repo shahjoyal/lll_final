@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const path = require('path');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const app = express();
@@ -14,9 +16,33 @@ const MONGO_URI = process.env.MONGO_URI;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
+// Newsletter sending (optional — the site runs fine without these set,
+// the admin panel will just show a clear message instead of sending).
+const SMTP_HOST = process.env.SMTP_HOST || 'smtp-relay.brevo.com';
+const SMTP_PORT = Number(process.env.SMTP_PORT) || 587;
+const SMTP_USER = process.env.SMTP_USER;
+const SMTP_PASS = process.env.SMTP_PASS;
+const FROM_EMAIL = process.env.FROM_EMAIL;
+const FROM_NAME = process.env.FROM_NAME || 'Ladies, Leadership & Logistics';
+const SITE_URL = (process.env.SITE_URL || 'http://localhost:' + (process.env.PORT || 3000)).replace(/\/$/, '');
+const ORG_ADDRESS = process.env.ORG_ADDRESS || '';
+
 if (!MONGO_URI || !JWT_SECRET || !ADMIN_EMAIL || !ADMIN_PASSWORD) {
   console.error('Missing MONGO_URI, JWT_SECRET, ADMIN_EMAIL or ADMIN_PASSWORD in .env');
   process.exit(1);
+}
+
+const mailEnabled = Boolean(SMTP_USER && SMTP_PASS && FROM_EMAIL);
+let transporter = null;
+if (mailEnabled) {
+  transporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: false, // Brevo/most relays use STARTTLS on 587
+    auth: { user: SMTP_USER, pass: SMTP_PASS }
+  });
+} else {
+  console.warn('Newsletter sending is disabled: set SMTP_USER, SMTP_PASS and FROM_EMAIL in .env to enable it.');
 }
 
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -44,6 +70,7 @@ const subscriberSchema = new mongoose.Schema({
   name: { type: String, trim: true, maxlength: 100, required: true },
   email: { type: String, trim: true, lowercase: true, maxlength: 254, unique: true, required: true },
   active: { type: Boolean, default: true },
+  unsubscribeToken: { type: String, default: () => crypto.randomBytes(20).toString('hex'), unique: true },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -52,10 +79,21 @@ const adminSchema = new mongoose.Schema({
   passwordHash: { type: String, required: true }
 });
 
+const newsletterSchema = new mongoose.Schema({
+  subject: { type: String, trim: true, maxlength: 200, required: true },
+  bodyHtml: { type: String, required: true },
+  isRawHtml: { type: Boolean, default: false },
+  recipientCount: { type: Number, default: 0 },
+  failedCount: { type: Number, default: 0 },
+  sentBy: { type: String, trim: true, lowercase: true },
+  sentAt: { type: Date, default: Date.now }
+});
+
 const Feedback = mongoose.model('Feedback', feedbackSchema);
 const GuestRequest = mongoose.model('GuestRequest', guestSchema);
 const Subscriber = mongoose.model('Subscriber', subscriberSchema);
 const Admin = mongoose.model('Admin', adminSchema);
+const Newsletter = mongoose.model('Newsletter', newsletterSchema);
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -73,6 +111,69 @@ function auth(req, res, next) {
     res.clearCookie('admin_token');
     return res.status(401).json({ message: 'Session expired. Please log in again.' });
   }
+}
+
+function escapeHtml(v = '') {
+  return String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
+}
+
+// Turns plain typed text into safe paragraph HTML (used unless the admin
+// explicitly opts into sending raw HTML they wrote themselves).
+function textToHtmlParagraphs(text) {
+  return String(text)
+    .split(/\n{2,}/)
+    .map(block => `<p style="margin:0 0 16px;">${escapeHtml(block).replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
+
+// Wraps newsletter content in a branded, professional-looking email template
+// that matches the site's gold/ivory theme, with a required unsubscribe link.
+function buildNewsletterHtml({ subject, contentHtml, subscriberName, unsubscribeUrl }) {
+  const logoUrl = `${SITE_URL}/lll.png`;
+  const greetingName = subscriberName ? escapeHtml(subscriberName.split(' ')[0]) : 'there';
+  return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f3ede0;font-family:Georgia,'Times New Roman',serif;color:#2b2622;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3ede0;padding:32px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fffdf9;border-radius:16px;overflow:hidden;border:1px solid #e6dac1;">
+        <tr>
+          <td style="background:linear-gradient(135deg,#8c6518,#b8862f);padding:28px 32px;text-align:center;">
+            <img src="${logoUrl}" alt="Ladies, Leadership & Logistics" width="48" height="48" style="display:block;margin:0 auto 10px;">
+            <p style="margin:0;color:#fffdf9;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;">Ladies, Leadership &amp; Logistics</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:36px 32px 8px;">
+            <h1 style="margin:0 0 18px;font-size:24px;font-weight:500;color:#2b2622;">${escapeHtml(subject)}</h1>
+            <p style="margin:0 0 20px;font-size:15px;color:#70675e;">Hi ${greetingName},</p>
+            <div style="font-size:15px;line-height:1.7;color:#2b2622;">${contentHtml}</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px 32px;">
+            <p style="margin:0;font-size:14px;">— The Ladies, Leadership &amp; Logistics team</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f6f0e2;padding:20px 32px;border-top:1px solid #e6dac1;text-align:center;">
+            <p style="margin:0 0 8px;font-size:11.5px;color:#8f8577;font-family:Arial,sans-serif;">
+              You're receiving this because you subscribed at Ladies, Leadership &amp; Logistics.
+              ${ORG_ADDRESS ? escapeHtml(ORG_ADDRESS) + '<br>' : ''}
+            </p>
+            <a href="${unsubscribeUrl}" style="font-size:11.5px;color:#a83d35;font-family:Arial,sans-serif;">Unsubscribe</a>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 }
 
 app.get('/api/health', (req, res) => {
@@ -225,6 +326,112 @@ app.patch('/api/admin/subscribers/:id', auth, async (req, res) => {
 app.delete('/api/admin/subscribers/:id', auth, async (req, res) => {
   await Subscriber.findByIdAndDelete(req.params.id);
   res.json({ message: 'Subscriber deleted.' });
+});
+
+/* ---------- Newsletter ---------- */
+
+app.get('/api/admin/newsletters', auth, async (req, res) => {
+  const newsletters = await Newsletter.find().sort({ sentAt: -1 }).limit(50)
+    .select('subject recipientCount failedCount sentAt sentBy').lean();
+  res.json({ newsletters, mailEnabled });
+});
+
+app.post('/api/admin/newsletter/preview', auth, (req, res) => {
+  const subject = cleanString(req.body.subject, 200) || '(No subject)';
+  const rawBody = typeof req.body.body === 'string' ? req.body.body.slice(0, 50000) : '';
+  const isRawHtml = Boolean(req.body.isRawHtml);
+  const contentHtml = isRawHtml ? rawBody : textToHtmlParagraphs(rawBody);
+  const html = buildNewsletterHtml({
+    subject,
+    contentHtml,
+    subscriberName: 'Preview Reader',
+    unsubscribeUrl: `${SITE_URL}/api/unsubscribe/preview`
+  });
+  res.json({ html });
+});
+
+app.post('/api/admin/newsletter/send', auth, async (req, res) => {
+  if (!mailEnabled) {
+    return res.status(503).json({ message: 'Email sending isn\'t configured yet. Add SMTP_USER, SMTP_PASS and FROM_EMAIL to your .env file (see README).' });
+  }
+  const subject = cleanString(req.body.subject, 200);
+  const rawBody = typeof req.body.body === 'string' ? req.body.body.slice(0, 50000) : '';
+  const isRawHtml = Boolean(req.body.isRawHtml);
+  if (!subject || !rawBody.trim()) {
+    return res.status(400).json({ message: 'Please provide a subject and a message.' });
+  }
+
+  const subscribers = await Subscriber.find({ active: true });
+  if (!subscribers.length) {
+    return res.status(400).json({ message: 'There are no active subscribers to send to.' });
+  }
+
+  const contentHtml = isRawHtml ? rawBody : textToHtmlParagraphs(rawBody);
+  let sent = 0;
+  const failedEmails = [];
+
+  for (const sub of subscribers) {
+    // Backfill an unsubscribe token for subscribers created before this feature existed.
+    if (!sub.unsubscribeToken) {
+      sub.unsubscribeToken = crypto.randomBytes(20).toString('hex');
+      await sub.save();
+    }
+    const html = buildNewsletterHtml({
+      subject,
+      contentHtml,
+      subscriberName: sub.name,
+      unsubscribeUrl: `${SITE_URL}/api/unsubscribe/${sub.unsubscribeToken}`
+    });
+    try {
+      await transporter.sendMail({
+        from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
+        to: sub.email,
+        subject,
+        html
+      });
+      sent++;
+    } catch (err) {
+      console.error('Newsletter send failed for', sub.email, err.message);
+      failedEmails.push(sub.email);
+    }
+    // Small pacing delay so we send steadily rather than in one burst.
+    await new Promise(r => setTimeout(r, 250));
+  }
+
+  await Newsletter.create({
+    subject,
+    bodyHtml: contentHtml,
+    isRawHtml,
+    recipientCount: sent,
+    failedCount: failedEmails.length,
+    sentBy: req.admin.email
+  });
+
+  res.json({
+    message: `Sent to ${sent} of ${subscribers.length} subscriber${subscribers.length === 1 ? '' : 's'}.`,
+    sent,
+    total: subscribers.length,
+    failedEmails
+  });
+});
+
+app.get('/api/unsubscribe/:token', async (req, res) => {
+  const sub = await Subscriber.findOneAndUpdate(
+    { unsubscribeToken: req.params.token },
+    { $set: { active: false } },
+    { new: true }
+  ).lean();
+  res.set('Content-Type', 'text/html');
+  res.send(`<!doctype html><html><head><meta charset="utf-8"><title>Unsubscribed</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>body{font-family:Georgia,serif;background:#f3ede0;color:#2b2622;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:24px;}
+  .card{background:#fffdf9;border:1px solid #e6dac1;border-radius:16px;padding:40px;max-width:420px;text-align:center;}
+  a{color:#b8862f;}</style></head>
+  <body><div class="card">
+    <h1 style="font-size:22px;font-weight:500;">${sub ? 'You\'ve been unsubscribed' : 'Link no longer valid'}</h1>
+    <p>${sub ? 'You will no longer receive newsletter emails from Ladies, Leadership &amp; Logistics. You can resubscribe anytime from our website.' : 'This unsubscribe link has already been used or is invalid.'}</p>
+    <p><a href="${SITE_URL}">Return to the site</a></p>
+  </div></body></html>`);
 });
 
 app.use(express.static(path.join(__dirname, 'public')));

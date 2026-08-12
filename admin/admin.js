@@ -1,5 +1,5 @@
 const $ = s => document.querySelector(s);
-const state = { feedback: [], guests: [], subscribers: [] };
+const state = { feedback: [], guests: [], subscribers: [], newsletters: [], mailEnabled: false };
 
 async function api(url, options = {}) {
   const r = await fetch(url, { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }});
@@ -15,15 +15,18 @@ async function checkAuth(){
     const me = await api('/api/admin/me');
     $('#adminEmail').textContent = me.email;
     $('#loginView').hidden = true; $('#dashboardView').hidden = false;
+    initNewsletterPanel();
     await refresh();
   } catch { $('#loginView').hidden = false; $('#dashboardView').hidden = true; }
 }
 async function refresh(){
-  const [f,g,s] = await Promise.all([
-    api('/api/admin/feedback'), api('/api/admin/guests'), api('/api/admin/subscribers')
+  const [f,g,s,n] = await Promise.all([
+    api('/api/admin/feedback'), api('/api/admin/guests'), api('/api/admin/subscribers'), api('/api/admin/newsletters')
   ]);
   state.feedback=f.feedback; state.guests=g.guests; state.subscribers=s.subscribers;
+  state.newsletters=n.newsletters; state.mailEnabled=n.mailEnabled;
   renderStats(); renderAll();
+  updateNewsletterDynamic();
 }
 function renderStats(){
   $('#stats').innerHTML = [
@@ -66,6 +69,102 @@ $('#loginForm').addEventListener('submit',async e=>{
 $('#logoutBtn').addEventListener('click',async()=>{await api('/api/admin/logout',{method:'POST'});location.reload();});
 document.querySelectorAll('.tab').forEach(tab=>tab.addEventListener('click',()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));tab.classList.add('active');
-  ['feedback','guests','subscribers'].forEach(x=>$('#'+x+'Panel').hidden=x!==tab.dataset.tab);
+  ['feedback','guests','subscribers','newsletter'].forEach(x=>$('#'+x+'Panel').hidden=x!==tab.dataset.tab);
 }));
+
+/* ---------- Newsletter composer ---------- */
+function initNewsletterPanel(){
+  $('#newsletterPanel').innerHTML = `
+    <h2>Send Newsletter</h2>
+    <div id="nlMailBanner"></div>
+    <form id="nlForm" class="newsletter-form">
+      <label>Subject
+        <input type="text" id="nlSubject" maxlength="200" placeholder="e.g. New episode: Building resilient supply chains" required>
+      </label>
+      <label>Message
+        <textarea id="nlBody" rows="10" maxlength="50000" placeholder="Write your update here. Leave a blank line between paragraphs." required></textarea>
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" id="nlRawHtml">
+        <span>Advanced: I'm pasting my own HTML instead of plain text</span>
+      </label>
+      <div class="actions">
+        <button type="button" id="nlPreviewBtn" class="secondary">Preview</button>
+        <button type="submit" id="nlSendBtn">Send to <span id="nlRecipientCount">0</span> active subscriber(s)</button>
+      </div>
+      <p id="nlStatus" class="muted"></p>
+      <p id="nlResult" class="muted"></p>
+    </form>
+    <div id="nlPreviewWrap" hidden>
+      <h3>Preview</h3>
+      <iframe id="nlPreviewFrame" title="Newsletter preview" sandbox=""></iframe>
+    </div>
+    <h3>Previously sent</h3>
+    <div id="nlHistory"></div>
+  `;
+
+  $('#nlPreviewBtn').addEventListener('click', async () => {
+    const subject = $('#nlSubject').value.trim();
+    const body = $('#nlBody').value;
+    const isRawHtml = $('#nlRawHtml').checked;
+    if (!body.trim()) { $('#nlResult').textContent = 'Write a message first.'; return; }
+    try {
+      const { html } = await api('/api/admin/newsletter/preview', { method:'POST', body: JSON.stringify({ subject, body, isRawHtml }) });
+      $('#nlPreviewWrap').hidden = false;
+      $('#nlPreviewFrame').srcdoc = html;
+      $('#nlResult').textContent = '';
+    } catch (err) {
+      $('#nlResult').textContent = err.message;
+    }
+  });
+
+  $('#nlForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const subject = $('#nlSubject').value.trim();
+    const body = $('#nlBody').value;
+    const isRawHtml = $('#nlRawHtml').checked;
+    const count = state.subscribers.filter(x=>x.active).length;
+    if (!subject || !body.trim()) { $('#nlResult').textContent = 'Please fill in a subject and message.'; return; }
+    if (!confirm(`Send "${subject}" to ${count} active subscriber(s)? This can't be undone.`)) return;
+    const btn = $('#nlSendBtn');
+    btn.disabled = true;
+    $('#nlStatus').textContent = 'Sending… this can take a minute for larger lists, please don\'t close this tab.';
+    $('#nlResult').textContent = '';
+    try {
+      const result = await api('/api/admin/newsletter/send', { method:'POST', body: JSON.stringify({ subject, body, isRawHtml }) });
+      $('#nlResult').textContent = result.message + (result.failedEmails && result.failedEmails.length ? ` Failed: ${result.failedEmails.join(', ')}` : '');
+      $('#nlForm').reset();
+      $('#nlPreviewWrap').hidden = true;
+      await refresh();
+    } catch (err) {
+      $('#nlResult').textContent = err.message;
+    } finally {
+      btn.disabled = false;
+      $('#nlStatus').textContent = '';
+    }
+  });
+}
+
+function updateNewsletterDynamic(){
+  const activeCount = state.subscribers.filter(x=>x.active).length;
+  const countEl = $('#nlRecipientCount');
+  if (countEl) countEl.textContent = activeCount;
+
+  const banner = $('#nlMailBanner');
+  if (banner) {
+    banner.innerHTML = state.mailEnabled
+      ? ''
+      : `<div class="badge" style="background:#fff0ee;color:var(--danger);display:block;padding:12px 14px;margin-bottom:16px;">Email sending isn't configured yet. Add <code>SMTP_USER</code>, <code>SMTP_PASS</code> and <code>FROM_EMAIL</code> to your <code>.env</code> file (see README), then restart the server.</div>`;
+  }
+
+  const historyEl = $('#nlHistory');
+  if (historyEl) {
+    historyEl.innerHTML = state.newsletters.length
+      ? `<table><thead><tr><th>Date</th><th>Subject</th><th>Sent</th><th>Failed</th></tr></thead><tbody>${
+          state.newsletters.map(n=>`<tr><td>${date(n.sentAt)}</td><td>${esc(n.subject)}</td><td>${n.recipientCount}</td><td>${n.failedCount||0}</td></tr>`).join('')
+        }</tbody></table>`
+      : '<p class="muted">No newsletters sent yet.</p>';
+  }
+}
+
 checkAuth();
