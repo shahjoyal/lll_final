@@ -17,7 +17,7 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 // Newsletter sending (optional — the site runs fine without these set,
-// the admin panel will just show a clear message instead of sending).
+// the adminnnnnnn panel will just show a clear message instead of sending).
 const SMTP_HOST = process.env.SMTP_HOST || 'smtp-relay.brevo.com';
 const SMTP_PORT = Number(process.env.SMTP_PORT) || 587;
 const SMTP_USER = process.env.SMTP_USER;
