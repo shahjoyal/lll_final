@@ -139,6 +139,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  /* ---------- Episode carousel speed ---------- */
+  // Pixels-per-second the track scrolls at. Raise this number to make it faster,
+  // lower it to slow it down.
+  const MARQUEE_SPEED_PX_PER_SEC = 55;
+
+  const episodesTrack = document.getElementById('episodesTrack');
+  function setMarqueeDuration() {
+    if (!episodesTrack) return;
+    // The track holds two identical sets of cards back to back (for the seamless
+    // loop), so one full set's width is exactly half the track's scroll width.
+    const oneSetWidth = episodesTrack.scrollWidth / 2;
+    if (!oneSetWidth) return;
+    const duration = oneSetWidth / MARQUEE_SPEED_PX_PER_SEC;
+    episodesTrack.style.setProperty('--marquee-duration', duration + 's');
+  }
+  setMarqueeDuration();
+  window.addEventListener('resize', setMarqueeDuration);
+  window.addEventListener('load', setMarqueeDuration);
+
   /* ---------- Episode cards ---------- */
   const toast = document.getElementById('toast');
   const toastText = toast.querySelector('p');

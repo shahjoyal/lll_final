@@ -674,7 +674,7 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
   gap:24px;
   width:max-content;
   padding:6px 0 26px;
-  animation:marquee 75s linear infinite;
+  animation:marquee var(--marquee-duration, 60s) linear infinite;
 }
 .episodes__viewport:hover .episodes__track{
   animation-play-state:paused;
@@ -688,13 +688,14 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
 .ep-card{
   position:relative;
   flex:0 0 auto;
-  width:clamp(240px, 26vw, 300px);
-  aspect-ratio:1/1;
+  width:clamp(260px, 34vw, 340px);
+  aspect-ratio:16/9;
   border-radius:18px;
   overflow:hidden;
   background-color:var(--champagne);
   background-image:var(--img);
-  background-size:cover;
+  background-size:contain;
+  background-repeat:no-repeat;
   background-position:center;
   isolation:isolate;
   box-shadow:0 14px 34px -18px rgba(140,101,24,0.4);
@@ -759,14 +760,14 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
 .ep-card:hover::before{background:linear-gradient(180deg,rgba(43,38,34,0.15) 0%,rgba(43,38,34,0.75) 100%);}
 
 @media(min-width:640px){
-  .ep-card{width:clamp(260px, 30vw, 330px);}
+  .ep-card{width:clamp(300px, 38vw, 380px);}
 }
 @media(min-width:1100px){
-  .ep-card{width:clamp(280px, 22vw, 360px);}
-  .episodes__track{gap:28px;animation-duration:85s;}
+  .ep-card{width:clamp(320px, 26vw, 420px);}
+  .episodes__track{gap:28px;}
 }
 @media(min-width:1500px){
-  .ep-card{width:380px;}
+  .ep-card{width:440px;}
 }
 
 /* =============== CONNECT (feedback / guest / email / whatsapp) =============== */
