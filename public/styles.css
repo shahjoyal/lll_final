@@ -317,9 +317,10 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
 }
 .hero__title span{display:block;}
 .hero__amp em{
-  font-style:italic;
+  font-family:var(--ff-body);
+  font-style:normal;
   color:var(--gold);
-  font-weight:400;
+  font-weight:600;
 }
 
 .hero__tagline{
