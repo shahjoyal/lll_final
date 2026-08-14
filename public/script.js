@@ -189,6 +189,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  /* Per-card YouTube / Spotify icons — open their own link without triggering the card's YouTube click */
+  document.querySelectorAll('.ep-card__icon').forEach(icon => {
+    const openIconLink = (e) => {
+      e.stopPropagation();
+      const link = icon.getAttribute('data-icon-link');
+      if (link) window.open(link, '_blank', 'noopener');
+    };
+    icon.addEventListener('click', openIconLink);
+    icon.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openIconLink(e);
+      }
+    });
+  });
+
   /* ---------- Star rating ---------- */
   const starRating = document.getElementById('starRating');
   const ratingValue = document.getElementById('ratingValue');

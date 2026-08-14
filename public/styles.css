@@ -176,8 +176,11 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
 .nav__links a:hover{color:var(--gold-deep);}
 .nav__links a:hover::after{width:100%;}
 
+.nav__ctas{display:flex;align-items:center;gap:10px;}
 .nav__cta{
   display:none;
+  align-items:center;
+  gap:7px;
   font-size:13.5px;
   font-weight:600;
   letter-spacing:0.02em;
@@ -190,6 +193,7 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
   white-space:nowrap;
 }
 .nav__cta:hover{transform:translateY(-2px);box-shadow:0 12px 26px -8px rgba(140,101,24,0.65);}
+.nav__cta-icon{width:15px;height:15px;flex:0 0 auto;}
 
 .nav__burger{
   width:40px;height:40px;
@@ -223,7 +227,7 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
   .nav__wordmark{display:none;}
   .nav__links{display:flex;}
   .nav__links.is-open{display:flex;position:static;background:none;padding:0;box-shadow:none;border:none;flex-direction:row;}
-  .nav__cta{display:inline-flex;align-items:center;}
+  .nav__cta{display:inline-flex;}
   .nav__burger{display:none;}
 }
 
@@ -759,6 +763,44 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
 .ep-card__play svg{width:20px;height:20px;margin-left:2px;}
 .ep-card:hover .ep-card__play{opacity:1;transform:translate(-50%,-50%) scale(1);}
 .ep-card:hover::before{background:linear-gradient(180deg,rgba(43,38,34,0.15) 0%,rgba(43,38,34,0.75) 100%);}
+
+.ep-card__icons{
+  position:absolute;
+  top:12px;right:12px;
+  z-index:3;
+  display:flex;
+  gap:8px;
+}
+.ep-card__icon{
+  width:32px;height:32px;
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(43,38,34,0.45);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  color:var(--white);
+  opacity:0;
+  transform:translateY(-6px);
+  transition:opacity .3s ease, transform .3s ease, background .25s ease, box-shadow .25s ease;
+  cursor:pointer;
+}
+.ep-card__icon svg{width:15px;height:15px;}
+.ep-card:hover .ep-card__icon,
+.ep-card:focus-within .ep-card__icon{
+  opacity:1;
+  transform:translateY(0);
+}
+.ep-card__icon--yt:hover,
+.ep-card__icon--yt:focus-visible{
+  background:#ff0000;
+  box-shadow:0 6px 16px -4px rgba(255,0,0,0.6);
+}
+.ep-card__icon--sp:hover,
+.ep-card__icon--sp:focus-visible{
+  background:#1ed760;
+  box-shadow:0 6px 16px -4px rgba(30,215,96,0.6);
+}
+.ep-card__icon[data-icon-link=""]{opacity:0 !important;pointer-events:none;}
 
 @media(min-width:640px){
   .ep-card{width:clamp(300px, 38vw, 380px);}
