@@ -145,6 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const MARQUEE_SPEED_PX_PER_SEC = 55;
 
   const episodesTrack = document.getElementById('episodesTrack');
+  const episodesSub = document.getElementById('episodesSub');
   function setMarqueeDuration() {
     if (!episodesTrack) return;
     // The track holds two identical sets of cards back to back (for the seamless
@@ -154,9 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const duration = oneSetWidth / MARQUEE_SPEED_PX_PER_SEC;
     episodesTrack.style.setProperty('--marquee-duration', duration + 's');
   }
-  setMarqueeDuration();
   window.addEventListener('resize', setMarqueeDuration);
-  window.addEventListener('load', setMarqueeDuration);
 
   /* ---------- Episode cards ---------- */
   const toast = document.getElementById('toast');
@@ -177,33 +176,88 @@ document.addEventListener('DOMContentLoaded', () => {
     toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 4500);
   }
 
-  document.querySelectorAll('.ep-card').forEach(card => {
-    card.addEventListener('click', () => {
-      const link = card.getAttribute('data-link');
-      const isSoon = card.getAttribute('data-soon') === 'true';
-      if (isSoon) {
-        showToast('This episode is <strong>coming soon</strong> — follow on LinkedIn for updates.', 'https://www.linkedin.com/company/ladies-leadership-logistics/', 'Visit LinkedIn →');
-      } else if (link) {
-        window.open(link, '_blank', 'noopener');
-      }
-    });
-  });
+  const YT_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.51 3.5 12 3.5 12 3.5s-7.51 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14C4.49 20.5 12 20.5 12 20.5s7.51 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.6 15.6V8.4l6.4 3.6-6.4 3.6z"/></svg>';
+  const SP_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.24 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.021.419 1.561-.299.421-1.02.599-1.559.3z"/></svg>';
 
-  /* Per-card YouTube / Spotify icons — open their own link without triggering the card's YouTube click */
-  document.querySelectorAll('.ep-card__icon').forEach(icon => {
-    const openIconLink = (e) => {
-      e.stopPropagation();
-      const link = icon.getAttribute('data-icon-link');
-      if (link) window.open(link, '_blank', 'noopener');
-    };
-    icon.addEventListener('click', openIconLink);
-    icon.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        openIconLink(e);
-      }
+  function escAttr(v = '') {
+    return String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function buildCardHtml(ep, index, total, hidden) {
+    const num = String(total - index).padStart(2, '0');
+    const yt = ep.youtubeLink || '';
+    const sp = ep.spotifyLink || '';
+    const label = ep.title ? escAttr(ep.title) : `Episode ${num}`;
+    const a11y = hidden ? ' aria-hidden="true" tabindex="-1"' : '';
+    const iconsA11y = hidden ? ' aria-hidden="true"' : '';
+    const iconTab = hidden ? ' tabindex="-1"' : '';
+    return `
+      <button class="ep-card"${a11y} data-link="${escAttr(yt)}" style="--img:url('${escAttr(ep.imageUrl)}')">
+        <span class="ep-card__num">${label}</span>
+        <span class="ep-card__play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+        <span class="ep-card__icons"${iconsA11y}>
+          <span class="ep-card__icon ep-card__icon--yt" data-icon-link="${escAttr(yt)}" role="link" aria-label="Watch on YouTube"${iconTab}>${YT_ICON}</span>
+          <span class="ep-card__icon ep-card__icon--sp" data-icon-link="${escAttr(sp)}" role="link" aria-label="Listen on Spotify"${iconTab}>${SP_ICON}</span>
+        </span>
+      </button>`;
+  }
+
+  function wireUpCards() {
+    document.querySelectorAll('.ep-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const link = card.getAttribute('data-link');
+        const isSoon = card.getAttribute('data-soon') === 'true';
+        if (isSoon) {
+          showToast('This episode is <strong>coming soon</strong> — follow on LinkedIn for updates.', 'https://www.linkedin.com/company/ladies-leadership-logistics/', 'Visit LinkedIn →');
+        } else if (link) {
+          window.open(link, '_blank', 'noopener');
+        }
+      });
     });
-  });
+
+    /* Per-card YouTube / Spotify icons — open their own link without triggering the card's YouTube click */
+    document.querySelectorAll('.ep-card__icon').forEach(icon => {
+      const openIconLink = (e) => {
+        e.stopPropagation();
+        const link = icon.getAttribute('data-icon-link');
+        if (link) window.open(link, '_blank', 'noopener');
+      };
+      icon.addEventListener('click', openIconLink);
+      icon.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openIconLink(e);
+        }
+      });
+    });
+  }
+
+  async function loadEpisodes() {
+    if (!episodesTrack) return;
+    try {
+      const res = await fetch('/api/episodes');
+      const data = await res.json();
+      const episodes = Array.isArray(data.episodes) ? data.episodes : [];
+      if (!episodes.length) {
+        episodesTrack.innerHTML = '';
+        if (episodesSub) episodesSub.textContent = 'New episodes coming soon.';
+        return;
+      }
+      if (episodesSub) episodesSub.textContent = `${episodes.length} stop${episodes.length === 1 ? '' : 's'} on the route so far — tap a card to watch.`;
+      const total = episodes.length;
+      // Render the set twice back-to-back for a seamless marquee loop; the
+      // second copy is hidden from assistive tech and keyboard focus.
+      const visible = episodes.map((ep, i) => buildCardHtml(ep, i, total, false)).join('');
+      const hidden = episodes.map((ep, i) => buildCardHtml(ep, i, total, true)).join('');
+      episodesTrack.innerHTML = visible + hidden;
+      wireUpCards();
+      setMarqueeDuration();
+    } catch (err) {
+      console.error('Unable to load episodes', err);
+    }
+  }
+
+  loadEpisodes();
 
   /* ---------- Star rating ---------- */
   const starRating = document.getElementById('starRating');

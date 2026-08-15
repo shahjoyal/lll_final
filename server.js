@@ -7,6 +7,7 @@ const helmet = require('helmet');
 const path = require('path');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const multer = require('multer');
 require('dotenv').config();
 
 const app = express();
@@ -26,6 +27,20 @@ const FROM_EMAIL = process.env.FROM_EMAIL;
 const FROM_NAME = process.env.FROM_NAME || 'Ladies, Leadership & Logistics';
 const SITE_URL = (process.env.SITE_URL || 'http://localhost:' + (process.env.PORT || 3000)).replace(/\/$/, '');
 const ORG_ADDRESS = process.env.ORG_ADDRESS || '';
+
+// Episode carousel images are committed straight to a GitHub repo (instead of
+// the server's own disk) so they survive redeploys and are served over a CDN.
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GITHUB_OWNER = process.env.GITHUB_OWNER;
+const GITHUB_REPO = process.env.GITHUB_REPO;
+const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main';
+// Folder inside the repo that images are committed to. Keep this under
+// `public/` so it's served by GitHub Pages / your static host if you use one.
+const GITHUB_IMAGE_DIR = (process.env.GITHUB_IMAGE_DIR || 'public/episodes').replace(/^\/|\/$/g, '');
+const githubEnabled = Boolean(GITHUB_TOKEN && GITHUB_OWNER && GITHUB_REPO);
+if (!githubEnabled) {
+  console.warn('Episode image uploads are disabled: set GITHUB_TOKEN, GITHUB_OWNER and GITHUB_REPO in .env to enable them.');
+}
 
 if (!MONGO_URI || !JWT_SECRET || !ADMIN_EMAIL || !ADMIN_PASSWORD) {
   console.error('Missing MONGO_URI, JWT_SECRET, ADMIN_EMAIL or ADMIN_PASSWORD in .env');
@@ -79,6 +94,17 @@ const adminSchema = new mongoose.Schema({
   passwordHash: { type: String, required: true }
 });
 
+const episodeSchema = new mongoose.Schema({
+  title: { type: String, trim: true, maxlength: 150, default: '' },
+  youtubeLink: { type: String, trim: true, maxlength: 500, required: true },
+  spotifyLink: { type: String, trim: true, maxlength: 500, required: true },
+  imageUrl: { type: String, required: true },
+  imagePath: { type: String, required: true }, // path inside the GitHub repo
+  imageSha: { type: String, required: true },  // needed to delete/replace the file later
+  order: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now }
+});
+
 const newsletterSchema = new mongoose.Schema({
   subject: { type: String, trim: true, maxlength: 200, required: true },
   bodyHtml: { type: String, required: true },
@@ -94,6 +120,74 @@ const GuestRequest = mongoose.model('GuestRequest', guestSchema);
 const Subscriber = mongoose.model('Subscriber', subscriberSchema);
 const Admin = mongoose.model('Admin', adminSchema);
 const Newsletter = mongoose.model('Newsletter', newsletterSchema);
+const Episode = mongoose.model('Episode', episodeSchema);
+
+/* ---------- GitHub-backed image storage for the episode carousel ---------- */
+
+const GITHUB_API = 'https://api.github.com';
+
+async function githubRequest(method, urlPath, body) {
+  const res = await fetch(`${GITHUB_API}${urlPath}`, {
+    method,
+    headers: {
+      'Authorization': `Bearer ${GITHUB_TOKEN}`,
+      'Accept': 'application/vnd.github+json',
+      'User-Agent': 'lll-admin',
+      'Content-Type': 'application/json'
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data && data.message ? data.message : `GitHub API error (${res.status})`;
+    throw new Error(msg);
+  }
+  return data;
+}
+
+/** Commits a file (image) to the configured GitHub repo and returns its
+ * public raw URL, repo path and blob sha (needed later to delete it). */
+async function uploadImageToGithub(buffer, originalName) {
+  const ext = (path.extname(originalName || '').toLowerCase() || '.jpg').replace(/[^a-z0-9.]/g, '') || '.jpg';
+  const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`;
+  const repoPath = `${GITHUB_IMAGE_DIR}/${filename}`;
+  const data = await githubRequest('PUT', `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${repoPath}`, {
+    message: `Add episode image ${filename}`,
+    content: buffer.toString('base64'),
+    branch: GITHUB_BRANCH
+  });
+  const rawUrl = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${repoPath}`;
+  return { imageUrl: rawUrl, imagePath: repoPath, imageSha: data.content && data.content.sha };
+}
+
+async function deleteImageFromGithub(repoPath, sha) {
+  if (!repoPath || !sha) return;
+  try {
+    await githubRequest('DELETE', `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${repoPath}`, {
+      message: `Remove episode image ${repoPath}`,
+      sha,
+      branch: GITHUB_BRANCH
+    });
+  } catch (err) {
+    // Non-fatal: the DB record change should still succeed even if the
+    // repo cleanup fails (e.g. file already removed manually).
+    console.error('Failed to delete image from GitHub:', err.message);
+  }
+}
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
+  fileFilter: (req, file, cb) => {
+    const ok = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.mimetype);
+    cb(ok ? null : new Error('Only PNG, JPEG, WEBP or GIF images are allowed.'), ok);
+  }
+});
+
+function handleUploadError(err, req, res, next) {
+  if (err) return res.status(400).json({ message: err.message || 'Image upload failed.' });
+  next();
+}
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -206,6 +300,19 @@ app.get('/api/reviews', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Unable to load reviews.' });
+  }
+});
+
+app.get('/api/episodes', async (req, res) => {
+  try {
+    const episodes = await Episode.find()
+      .sort({ order: 1, createdAt: 1 })
+      .select('title youtubeLink spotifyLink imageUrl')
+      .lean();
+    res.json({ episodes });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Unable to load episodes.' });
   }
 });
 
@@ -326,6 +433,105 @@ app.patch('/api/admin/subscribers/:id', auth, async (req, res) => {
 app.delete('/api/admin/subscribers/:id', auth, async (req, res) => {
   await Subscriber.findByIdAndDelete(req.params.id);
   res.json({ message: 'Subscriber deleted.' });
+});
+
+/* ---------- Episode carousel ---------- */
+
+const urlLikeRegex = /^https?:\/\/.+/i;
+
+app.get('/api/admin/episodes', auth, async (req, res) => {
+  const episodes = await Episode.find().sort({ order: 1, createdAt: 1 }).lean();
+  res.json({ episodes, githubEnabled });
+});
+
+app.post('/api/admin/episodes', auth, upload.single('image'), handleUploadError, async (req, res) => {
+  try {
+    if (!githubEnabled) {
+      return res.status(503).json({ message: "Image uploads aren't configured yet. Add GITHUB_TOKEN, GITHUB_OWNER and GITHUB_REPO to your .env file (see README), then restart the server." });
+    }
+    const title = cleanString(req.body.title, 150);
+    const youtubeLink = cleanString(req.body.youtubeLink, 500);
+    const spotifyLink = cleanString(req.body.spotifyLink, 500);
+    if (!urlLikeRegex.test(youtubeLink) || !urlLikeRegex.test(spotifyLink)) {
+      return res.status(400).json({ message: 'Please provide a valid YouTube link and Spotify link.' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: 'Please choose a cover image.' });
+    }
+
+    const { imageUrl, imagePath, imageSha } = await uploadImageToGithub(req.file.buffer, req.file.originalname);
+
+    const maxOrder = await Episode.findOne().sort({ order: -1 }).select('order').lean();
+    const episode = await Episode.create({
+      title,
+      youtubeLink,
+      spotifyLink,
+      imageUrl,
+      imagePath,
+      imageSha,
+      order: maxOrder ? maxOrder.order + 1 : 0
+    });
+
+    res.status(201).json({ episode });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message || 'Unable to save the episode right now.' });
+  }
+});
+
+app.patch('/api/admin/episodes/reorder', auth, async (req, res) => {
+  const ids = Array.isArray(req.body.order) ? req.body.order : null;
+  if (!ids || !ids.length) return res.status(400).json({ message: 'Provide an ordered list of episode ids.' });
+  await Promise.all(ids.map((id, index) => Episode.findByIdAndUpdate(id, { order: index })));
+  res.json({ message: 'Order updated.' });
+});
+
+app.patch('/api/admin/episodes/:id', auth, upload.single('image'), handleUploadError, async (req, res) => {
+  try {
+    const episode = await Episode.findById(req.params.id);
+    if (!episode) return res.status(404).json({ message: 'Episode not found.' });
+
+    const updates = {};
+    if (typeof req.body.title === 'string') updates.title = cleanString(req.body.title, 150);
+    if (typeof req.body.youtubeLink === 'string') {
+      const v = cleanString(req.body.youtubeLink, 500);
+      if (!urlLikeRegex.test(v)) return res.status(400).json({ message: 'Please provide a valid YouTube link.' });
+      updates.youtubeLink = v;
+    }
+    if (typeof req.body.spotifyLink === 'string') {
+      const v = cleanString(req.body.spotifyLink, 500);
+      if (!urlLikeRegex.test(v)) return res.status(400).json({ message: 'Please provide a valid Spotify link.' });
+      updates.spotifyLink = v;
+    }
+
+    if (req.file) {
+      if (!githubEnabled) {
+        return res.status(503).json({ message: "Image uploads aren't configured yet. Add GITHUB_TOKEN, GITHUB_OWNER and GITHUB_REPO to your .env file (see README), then restart the server." });
+      }
+      const { imageUrl, imagePath, imageSha } = await uploadImageToGithub(req.file.buffer, req.file.originalname);
+      // Swap in the new image, then remove the old one from the repo.
+      const oldPath = episode.imagePath;
+      const oldSha = episode.imageSha;
+      updates.imageUrl = imageUrl;
+      updates.imagePath = imagePath;
+      updates.imageSha = imageSha;
+      await deleteImageFromGithub(oldPath, oldSha);
+    }
+
+    Object.assign(episode, updates);
+    await episode.save();
+    res.json({ episode });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message || 'Unable to update the episode right now.' });
+  }
+});
+
+app.delete('/api/admin/episodes/:id', auth, async (req, res) => {
+  const episode = await Episode.findByIdAndDelete(req.params.id);
+  if (!episode) return res.status(404).json({ message: 'Episode not found.' });
+  await deleteImageFromGithub(episode.imagePath, episode.imageSha);
+  res.json({ message: 'Episode deleted.' });
 });
 
 /* ---------- Newsletter ---------- */
