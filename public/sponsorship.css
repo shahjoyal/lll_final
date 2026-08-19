@@ -1,0 +1,267 @@
+/* =========================================================
+   SPONSORSHIP / PARTNERSHIP PAGE
+   Uses the same design tokens as styles.css
+   ========================================================= */
+
+.back-link{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+  font-weight:600;
+  color:var(--ink-soft);
+  padding:9px 18px 9px 14px;
+  border:1.4px solid var(--line);
+  border-radius:999px;
+  background:rgba(255,255,255,0.5);
+  transition:border-color .25s ease, color .25s ease, background .25s ease, transform .25s ease;
+}
+.back-link svg{width:16px;height:16px;transition:transform .25s ease;}
+.back-link:hover{
+  border-color:var(--gold);
+  color:var(--gold-deep);
+  background:var(--white);
+  transform:translateX(-2px);
+}
+.back-link:hover svg{transform:translateX(-3px);}
+
+.sponsor-page{padding-top:var(--nav-h);}
+
+/* ---------- Hero ---------- */
+.sponsor-hero{
+  padding:96px 0 56px;
+  background:linear-gradient(180deg,var(--champagne-soft),var(--ivory) 80%);
+  text-align:center;
+}
+.sponsor-hero__title{
+  font-family:var(--ff-display);
+  font-weight:500;
+  font-size:clamp(32px,5vw,54px);
+  line-height:1.15;
+  color:var(--ink);
+  margin:0 auto;
+  max-width:760px;
+}
+.sponsor-hero__title em{
+  font-style:italic;
+  color:var(--gold-deep);
+}
+
+/* ---------- Why this conversation ---------- */
+.sponsor-why{padding:20px 0 80px;}
+.sponsor-why__text{
+  font-size:clamp(16px,1.8vw,19px);
+  line-height:1.75;
+  color:var(--ink-soft);
+  max-width:800px;
+  margin:0;
+}
+
+/* ---------- Tiers ---------- */
+.sponsor-tiers{padding:20px 0 90px;}
+.tier-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:22px;
+  margin-top:44px;
+}
+.tier-card{
+  position:relative;
+  padding:36px 30px 34px;
+  border:1px solid var(--line);
+  border-radius:22px;
+  background:rgba(255,255,255,0.7);
+  box-shadow:0 15px 45px -30px rgba(140,101,24,.45);
+  display:flex;
+  flex-direction:column;
+  transition:transform .35s cubic-bezier(.22,.9,.32,1), box-shadow .35s ease;
+}
+.tier-card:hover{
+  transform:translateY(-6px);
+  box-shadow:0 24px 55px -26px rgba(140,101,24,.5);
+}
+.tier-card--featured{
+  background:linear-gradient(180deg,var(--champagne-soft),var(--white));
+  border-color:var(--gold);
+  box-shadow:0 22px 55px -24px rgba(140,101,24,.55);
+}
+.tier-card--featured:hover{transform:translateY(-8px);}
+.tier-card__badge{
+  position:absolute;
+  top:-13px;
+  left:30px;
+  background:linear-gradient(135deg,var(--gold),var(--gold-deep));
+  color:var(--white);
+  font-size:11.5px;
+  font-weight:700;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  padding:6px 14px;
+  border-radius:999px;
+  box-shadow:0 8px 18px -6px rgba(140,101,24,0.6);
+}
+.tier-card__name{
+  font-family:var(--ff-display);
+  font-weight:600;
+  font-size:22px;
+  color:var(--ink);
+  margin:6px 0 8px;
+}
+.tier-card__sub{
+  font-size:14px;
+  color:var(--ink-soft);
+  margin:0 0 20px;
+  line-height:1.55;
+  min-height:42px;
+}
+.tier-card__price{
+  font-family:var(--ff-display);
+  font-weight:600;
+  font-size:clamp(28px,3vw,34px);
+  color:var(--gold-deep);
+  margin:0 0 24px;
+}
+.tier-card__price span{
+  font-family:var(--ff-body);
+  font-weight:500;
+  font-size:14px;
+  color:var(--ink-soft);
+  margin-left:4px;
+}
+.tier-card__list{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  flex:1;
+}
+.tier-card__list li{
+  position:relative;
+  padding-left:24px;
+  font-size:14.5px;
+  line-height:1.5;
+  color:var(--ink);
+}
+.tier-card__list li::before{
+  content:'';
+  position:absolute;
+  left:0;
+  top:7px;
+  width:8px;height:8px;
+  border-radius:50%;
+  background:var(--gold);
+}
+
+@media(min-width:900px){
+  .tier-grid{grid-template-columns:repeat(3,1fr);align-items:stretch;}
+}
+
+/* ---------- At a glance table ---------- */
+.sponsor-glance{padding:20px 0 90px;}
+.glance-table__wrap{
+  overflow-x:auto;
+  border:1px solid var(--line);
+  border-radius:20px;
+  background:rgba(255,255,255,0.7);
+  box-shadow:0 15px 45px -30px rgba(140,101,24,.4);
+}
+.glance-table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:640px;
+  font-size:14px;
+}
+.glance-table thead th{
+  font-family:var(--ff-display);
+  font-weight:600;
+  font-size:15px;
+  text-align:left;
+  color:var(--white);
+  background:linear-gradient(135deg,var(--gold),var(--gold-deep));
+  padding:16px 20px;
+}
+.glance-table thead th:first-child{border-radius:0;}
+.glance-table tbody td{
+  padding:15px 20px;
+  border-bottom:1px solid var(--line);
+  color:var(--ink);
+}
+.glance-table tbody tr:last-child td{border-bottom:none;}
+.glance-table tbody tr:nth-child(even){background:rgba(243,233,210,0.35);}
+.glance-table td:first-child{
+  font-weight:600;
+  color:var(--ink);
+  white-space:nowrap;
+}
+.glance-table .is-check{color:var(--gold-deep);font-weight:700;text-align:center;}
+.glance-table .is-dash{color:var(--ink-soft);opacity:0.5;text-align:center;}
+
+.sponsor-note{
+  margin:28px 0 0;
+  padding:20px 24px;
+  border-left:3px solid var(--gold);
+  background:var(--champagne-soft);
+  border-radius:0 14px 14px 0;
+  font-size:14.5px;
+  line-height:1.7;
+  color:var(--ink-soft);
+  max-width:820px;
+}
+.sponsor-note strong{color:var(--ink);}
+
+/* ---------- Advantage ---------- */
+.sponsor-advantage{padding:10px 0 90px;}
+
+/* ---------- Directions ---------- */
+.sponsor-directions{padding:20px 0 90px;}
+.directions-list{
+  list-style:none;
+  margin:44px 0 0;
+  padding:0;
+  display:grid;
+  grid-template-columns:1fr;
+  gap:14px;
+  max-width:720px;
+}
+.directions-list li{
+  position:relative;
+  padding:16px 20px 16px 46px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:rgba(255,255,255,0.6);
+  font-size:15px;
+  color:var(--ink);
+  line-height:1.5;
+}
+.directions-list li::before{
+  content:'';
+  position:absolute;
+  left:20px;
+  top:50%;
+  transform:translateY(-50%);
+  width:9px;height:9px;
+  border-radius:50%;
+  background:var(--gold);
+}
+
+/* ---------- Closing CTA ---------- */
+.sponsor-cta{
+  padding:80px 0 110px;
+  background:linear-gradient(180deg,var(--ivory),var(--champagne-soft));
+  text-align:center;
+}
+.sponsor-cta__inner{max-width:680px;margin:0 auto;}
+.sponsor-cta__tag{
+  font-size:15px;
+  color:var(--ink-soft);
+  margin:0 0 14px;
+}
+.sponsor-cta__actions{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:14px;
+  margin-top:30px;
+}

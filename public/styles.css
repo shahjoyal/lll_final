@@ -859,6 +859,24 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
   line-height:1.55;
 }
 
+.connect__card--sponsor{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:18px;
+  background:linear-gradient(135deg,var(--champagne-soft),var(--white));
+}
+@media(min-width:860px){
+  .connect__card--sponsor{
+    grid-column:1 / -1;
+    flex-direction:row;
+    align-items:center;
+    justify-content:space-between;
+    gap:28px;
+  }
+  .connect__card--sponsor .connect__card-copy{margin-bottom:0;max-width:520px;}
+}
+
 .connect__form{display:flex;flex-direction:column;gap:18px;}
 .connect__field{display:flex;flex-direction:column;gap:8px;}
 .connect__field span{
