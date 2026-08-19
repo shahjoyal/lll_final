@@ -860,21 +860,59 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
 }
 
 .connect__card--sponsor{
+  position:relative;
+  overflow:hidden;
   display:flex;
   flex-direction:column;
   align-items:flex-start;
   gap:18px;
   background:linear-gradient(135deg,var(--champagne-soft),var(--white));
 }
+.connect__card--sponsor::before{
+  content:"";
+  position:absolute;
+  z-index:0;
+  top:-60px;right:-60px;
+  width:220px;height:220px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(184,134,47,0.14), transparent 70%);
+  pointer-events:none;
+}
+.connect__card-icon{
+  position:relative;
+  z-index:1;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+  width:52px;height:52px;
+  border-radius:50%;
+  color:var(--white);
+  background:linear-gradient(135deg,var(--gold),var(--gold-deep));
+  box-shadow:0 10px 22px -8px rgba(140,101,24,0.55);
+}
+.connect__card-icon svg{width:24px;height:24px;}
+.connect__card-text{position:relative;z-index:1;}
 @media(min-width:860px){
   .connect__card--sponsor{
     grid-column:1 / -1;
     flex-direction:row;
     align-items:center;
-    justify-content:space-between;
+    justify-content:flex-start;
     gap:28px;
+    padding:clamp(28px,3vw,36px) clamp(32px,4vw,48px);
   }
-  .connect__card--sponsor .connect__card-copy{margin-bottom:0;max-width:520px;}
+  .connect__card--sponsor .connect__card-text{flex:1 1 auto;min-width:0;}
+  .connect__card--sponsor .connect__card-copy{margin-bottom:0;max-width:480px;}
+  .connect__card--sponsor .connect__submit{
+    position:relative;
+    z-index:1;
+    flex:0 0 auto;
+    white-space:nowrap;
+    align-self:center;
+    margin-top:0;
+    margin-left:auto;
+  }
 }
 
 .connect__form{display:flex;flex-direction:column;gap:18px;}
