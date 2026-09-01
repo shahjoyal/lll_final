@@ -139,23 +139,93 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  /* ---------- Episode carousel speed ---------- */
-  // Pixels-per-second the track scrolls at. Raise this number to make it faster,
-  // lower it to slow it down.
-  const MARQUEE_SPEED_PX_PER_SEC = 55;
-
-  const episodesTrack = document.getElementById('episodesTrack');
+  /* ---------- Episode carousel: three rows, alternating direction ---------- */
+  const episodesRows = document.getElementById('episodesRows');
   const episodesSub = document.getElementById('episodesSub');
-  function setMarqueeDuration() {
-    if (!episodesTrack) return;
-    // The track holds two identical sets of cards back to back (for the seamless
-    // loop), so one full set's width is exactly half the track's scroll width.
-    const oneSetWidth = episodesTrack.scrollWidth / 2;
-    if (!oneSetWidth) return;
-    const duration = oneSetWidth / MARQUEE_SPEED_PX_PER_SEC;
-    episodesTrack.style.setProperty('--marquee-duration', duration + 's');
+  const episodesTracks = ['episodesTrack1', 'episodesTrack2', 'episodesTrack3']
+    .map(id => document.getElementById(id))
+    .filter(Boolean);
+  const episodesPrev = document.getElementById('episodesPrev');
+  const episodesNext = document.getElementById('episodesNext');
+  const episodesNavLabel = document.getElementById('episodesNavLabel');
+
+  // Each row keeps its own speed (px/sec) — read from data-speed on the element,
+  // so the three rows drift at slightly different paces for a livelier, less
+  // mechanical feel. Raise/lower the data-speed attributes in the HTML to tune.
+  function setMarqueeDurations() {
+    episodesTracks.forEach(track => {
+      const oneSetWidth = track.scrollWidth / 2;
+      if (!oneSetWidth) return;
+      const speed = parseFloat(track.dataset.speed) || 55;
+      const duration = oneSetWidth / speed;
+      track.style.setProperty('--marquee-duration', duration + 's');
+    });
   }
-  window.addEventListener('resize', setMarqueeDuration);
+  window.addEventListener('resize', () => {
+    setMarqueeDurations();
+    if (isManual) exitManualMode();
+  });
+
+  /* ---- Manual browsing: arrows pause the auto-drift and step row-by-row ---- */
+  let isManual = false;
+
+  function parseTranslateX(transformStr) {
+    if (!transformStr || transformStr === 'none') return 0;
+    const match = transformStr.match(/matrix\(([^)]+)\)/);
+    if (!match) return 0;
+    const parts = match[1].split(',').map(parseFloat);
+    return parts[4] || 0;
+  }
+
+  function enterManualMode() {
+    if (isManual || !episodesRows) return;
+    isManual = true;
+    episodesRows.classList.add('is-manual');
+    episodesTracks.forEach(track => {
+      const currentX = parseTranslateX(getComputedStyle(track).transform);
+      track.style.animation = 'none';
+      track.style.transform = `translateX(${currentX}px)`;
+      track.dataset.offset = currentX;
+    });
+    if (episodesNavLabel) {
+      episodesNavLabel.innerHTML = 'Paused — <button type="button" id="episodesResume">Resume auto-play</button>';
+      const resumeBtn = document.getElementById('episodesResume');
+      if (resumeBtn) resumeBtn.addEventListener('click', exitManualMode);
+    }
+  }
+
+  function exitManualMode() {
+    if (!isManual || !episodesRows) return;
+    isManual = false;
+    episodesRows.classList.remove('is-manual');
+    episodesTracks.forEach(track => {
+      track.style.animation = '';
+      track.style.transform = '';
+      delete track.dataset.offset;
+    });
+    setMarqueeDurations();
+    if (episodesNavLabel) episodesNavLabel.textContent = 'Auto-playing';
+  }
+
+  function stepEpisodes(dir) {
+    if (!episodesTracks.length) return;
+    enterManualMode();
+    episodesTracks.forEach(track => {
+      const firstCard = track.children[0];
+      if (!firstCard) return;
+      const gap = parseFloat(getComputedStyle(track).columnGap || getComputedStyle(track).gap || 0);
+      const step = firstCard.getBoundingClientRect().width + gap;
+      const oneSetWidth = track.scrollWidth / 2;
+      let offset = parseFloat(track.dataset.offset || 0) - dir * step;
+      if (offset <= -oneSetWidth) offset += oneSetWidth;
+      if (offset > 0) offset -= oneSetWidth;
+      track.dataset.offset = offset;
+      track.style.transform = `translateX(${offset}px)`;
+    });
+  }
+
+  if (episodesPrev) episodesPrev.addEventListener('click', () => stepEpisodes(-1));
+  if (episodesNext) episodesNext.addEventListener('click', () => stepEpisodes(1));
 
   /* ---------- Episode cards ---------- */
   const toast = document.getElementById('toast');
@@ -233,25 +303,35 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function loadEpisodes() {
-    if (!episodesTrack) return;
+    if (!episodesTracks.length) return;
     try {
       const res = await fetch('/api/episodes');
       const data = await res.json();
       const episodes = Array.isArray(data.episodes) ? data.episodes : [];
       if (!episodes.length) {
-        episodesTrack.innerHTML = '';
+        episodesTracks.forEach(track => { track.innerHTML = ''; });
         if (episodesSub) episodesSub.textContent = 'New episodes coming soon.';
         return;
       }
       if (episodesSub) episodesSub.textContent = `${episodes.length} stop${episodes.length === 1 ? '' : 's'} on the route so far — tap a card to watch.`;
       const total = episodes.length;
-      // Render the set twice back-to-back for a seamless marquee loop; the
-      // second copy is hidden from assistive tech and keyboard focus.
-      const visible = episodes.map((ep, i) => buildCardHtml(ep, i, total, false)).join('');
-      const hidden = episodes.map((ep, i) => buildCardHtml(ep, i, total, true)).join('');
-      episodesTrack.innerHTML = visible + hidden;
+
+      // Spread episodes round-robin across the three rows so each row shows a
+      // different mix, then render each row's set twice back-to-back for a
+      // seamless loop (the second copy is hidden from assistive tech/keyboard).
+      const rows = episodesTracks.map(() => []);
+      episodes.forEach((ep, i) => rows[i % rows.length].push({ ep, i }));
+
+      episodesTracks.forEach((track, rowIndex) => {
+        const rowItems = rows[rowIndex];
+        if (!rowItems.length) { track.innerHTML = ''; return; }
+        const visible = rowItems.map(({ ep, i }) => buildCardHtml(ep, i, total, false)).join('');
+        const hidden = rowItems.map(({ ep, i }) => buildCardHtml(ep, i, total, true)).join('');
+        track.innerHTML = visible + hidden;
+      });
+
       wireUpCards();
-      setMarqueeDuration();
+      setMarqueeDurations();
     } catch (err) {
       console.error('Unable to load episodes', err);
     }

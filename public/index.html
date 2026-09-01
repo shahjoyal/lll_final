@@ -235,12 +235,32 @@
     <h2 class="section-title reveal-up">On the Show</h2>
     <p class="episodes__sub reveal-up" id="episodesSub">Tap a card to watch.</p>
 
-    <div class="episodes__viewport reveal-up">
-    <div class="episodes__track" id="episodesTrack">
-
-      <!-- Episode cards are injected dynamically by script.js from /api/episodes -->
-
+    <div class="episodes__nav reveal-up">
+      <button class="episodes__arrow episodes__arrow--prev" id="episodesPrev" aria-label="Browse previous episodes">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <span class="episodes__nav-label" id="episodesNavLabel">Auto-playing</span>
+      <button class="episodes__arrow episodes__arrow--next" id="episodesNext" aria-label="Browse next episodes">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </div>
+
+    <div class="episodes__rows reveal-up" id="episodesRows">
+      <div class="episodes__viewport">
+        <div class="episodes__track episodes__track--toleft" id="episodesTrack1" data-speed="55">
+          <!-- Episode cards are injected dynamically by script.js from /api/episodes -->
+        </div>
+      </div>
+      <div class="episodes__viewport">
+        <div class="episodes__track episodes__track--toright" id="episodesTrack2" data-speed="42">
+          <!-- Episode cards are injected dynamically by script.js from /api/episodes -->
+        </div>
+      </div>
+      <div class="episodes__viewport">
+        <div class="episodes__track episodes__track--toleft" id="episodesTrack3" data-speed="63">
+          <!-- Episode cards are injected dynamically by script.js from /api/episodes -->
+        </div>
+      </div>
     </div>
   </div>
 </section>
