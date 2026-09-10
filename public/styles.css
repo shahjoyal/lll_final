@@ -137,14 +137,15 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
   width:100%;
   max-width:var(--container);
   margin:0 auto;
-  padding:0 clamp(20px,5vw,64px);
+  padding:0 clamp(20px,5vw,48px);
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:24px;
+  gap:clamp(12px,2vw,24px);
 }
-.nav__brand{display:flex;align-items:center;gap:10px;}
-.nav__logo{height:38px;width:auto;object-fit:contain;}
+.nav__brand{display:flex;align-items:center;gap:10px;flex:0 0 auto;}
+.nav__logo{height:46px;width:auto;object-fit:contain;transition:height .3s ease;}
+.nav.is-scrolled .nav__logo{height:42px;}
 .nav__wordmark{
   font-family:var(--ff-display);
   font-size:20px;
@@ -154,15 +155,17 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
 }
 .nav__links{
   display:none;
-  gap:36px;
+  gap:clamp(18px,2.4vw,32px);
   align-items:center;
+  flex-wrap:nowrap;
 }
 .nav__links a{
-  font-size:14.5px;
+  font-size:14px;
   font-weight:500;
   color:var(--ink-soft);
   position:relative;
   padding:6px 0;
+  white-space:nowrap;
   transition:color .25s ease;
 }
 .nav__links a::after{
@@ -176,17 +179,17 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
 .nav__links a:hover{color:var(--gold-deep);}
 .nav__links a:hover::after{width:100%;}
 
-.nav__ctas{display:flex;align-items:center;gap:10px;}
+.nav__ctas{display:flex;align-items:center;gap:10px;flex:0 0 auto;}
 .nav__cta{
   display:none;
   align-items:center;
   gap:7px;
-  font-size:13.5px;
+  font-size:clamp(12.5px,1vw,13.5px);
   font-weight:600;
   letter-spacing:0.02em;
   color:var(--white);
   background:linear-gradient(135deg,var(--gold),var(--gold-deep));
-  padding:11px 22px;
+  padding:10px clamp(14px,1.6vw,22px);
   border-radius:999px;
   box-shadow:0 8px 22px -8px rgba(140,101,24,0.55);
   transition:transform .3s ease, box-shadow .3s ease;
@@ -229,6 +232,9 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
   .nav__links.is-open{display:flex;position:static;background:none;padding:0;box-shadow:none;border:none;flex-direction:row;}
   .nav__cta{display:inline-flex;}
   .nav__burger{display:none;}
+}
+@media(min-width:900px) and (max-width:1220px){
+  .nav__cta-prefix{display:none;}
 }
 
 /* =============== BUTTONS =============== */
