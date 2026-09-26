@@ -59,10 +59,18 @@ document.addEventListener('DOMContentLoaded', () => {
     item.el.appendChild(namesEl);
   });
 
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function namesToChips(names, variant) {
+    return names.map(n => `<span class="name-chip name-chip--${variant}">${escapeHtml(n)}</span>`).join('');
+  }
+
   function renderNamesInto(el, names) {
     if (names && names.length) {
       el.classList.remove('is-empty');
-      el.textContent = names.join(', ');
+      el.innerHTML = namesToChips(names, 'light');
     } else {
       el.classList.add('is-empty');
       el.textContent = 'Guest names coming soon.';
@@ -325,9 +333,9 @@ document.addEventListener('DOMContentLoaded', () => {
       tooltip.style.opacity = '1';
       const names = hovered.item.guests;
       const guestsHtml = names.length
-        ? `<span class="globe-tooltip__guests">${names.join(', ')}</span>`
+        ? `<span class="globe-tooltip__guests">${namesToChips(names, 'dark')}</span>`
         : `<span class="globe-tooltip__guests is-empty">Guest names coming soon</span>`;
-      tooltip.innerHTML = `<span class="globe-tooltip__title">${hovered.item.flag} ${hovered.item.name}</span>${guestsHtml}`;
+      tooltip.innerHTML = `<span class="globe-tooltip__title">${hovered.item.flag} ${escapeHtml(hovered.item.name)}</span>${guestsHtml}`;
       canvas.style.cursor = 'pointer';
     } else {
       tooltip.style.opacity = '0';
@@ -382,7 +390,23 @@ document.addEventListener('DOMContentLoaded', () => {
       const proj = tmpVec.clone().project(camera);
       const x = (proj.x * 0.5 + 0.5) * width;
       const y = (-proj.y * 0.5 + 0.5) * height;
-      tooltip.style.transform = `translate(${x}px, ${y}px) translate(-50%, -145%)`;
+
+      // Position with plain left/top (not a transform) so we can clamp it to
+      // stay fully inside the stage — this is what stopped long name lists
+      // from getting clipped off the top edge.
+      const margin = 10;
+      const tw = tooltip.offsetWidth;
+      const th = tooltip.offsetHeight;
+      let left = x - tw / 2;
+      let top = y - th - 18; // default: floats above the pin
+
+      if (top < margin) top = y + 22; // no room above -> show below the pin instead
+      if (top + th > height - margin) top = height - margin - th;
+      if (left < margin) left = margin;
+      if (left + tw > width - margin) left = width - margin - tw;
+
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${top}px`;
     }
 
     // Keep each country's on-globe name tag anchored to its point, and fade
