@@ -63,6 +63,12 @@ if (mailEnabled) {
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
+
+// SEO: keep the admin panel and API responses out of Google's index.
+app.use(['/admin', '/api'], (req, res, next) => {
+  res.set('X-Robots-Tag', 'noindex, nofollow');
+  next();
+});
 app.use("/admin", express.static(path.join(__dirname, "admin")));
 
 const feedbackSchema = new mongoose.Schema({
